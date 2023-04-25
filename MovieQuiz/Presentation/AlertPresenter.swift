@@ -10,17 +10,17 @@ import Foundation
 
 protocol AlertPresenter {
     
-    func show(alertModel: AlertModel)
+    func show( alertModel: AlertModel)
 }
 
 final class AlertPresenterImpl: AlertPresenter {
+    
     
     private weak var viewController: UIViewController?
     
     init(viewController: UIViewController? = nil) {
         self.viewController = viewController
     }
-    
     
     func show(alertModel: AlertModel) {
         

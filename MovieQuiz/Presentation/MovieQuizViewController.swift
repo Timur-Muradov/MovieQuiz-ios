@@ -2,6 +2,8 @@ import UIKit
 
 final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     
+    
+    
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -9,12 +11,17 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
         imageView.layer.cornerRadius = 20
         imageView.layer.borderWidth = 0
         
-        questionFactory = QuestionFactory(delegate: self)
-        alertPresenter = AlertPresenterImpl(viewController: self)
+        questionFactory = QuestionFactory(moviesLoader: MoviesLoader(), delegate: self)
         statisticService = StaticServiceImpl()
         
-        questionFactory?.requestNextQuestion()
+        showLoadingIndicator()
+        questionFactory?.loadData()
+        alertPresenter = AlertPresenterImpl(viewController: self)
         
+    }
+    
+    override var preferredStatusBarStyle: UIStatusBarStyle {
+        return.lightContent
     }
     
     // MARK: - QuestionFactoryDelegate
@@ -36,6 +43,8 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     private var currentQuestion: QuizQuestion?
     private var alertPresenter: AlertPresenter?
     private var statisticService: StatisticService?
+    
+    
     private func showAnswerResult(isCorrect: Bool) {
         
         if isCorrect {
@@ -55,6 +64,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
         }
         
     }
+    
     @IBOutlet private var yesButtonClicked: UIButton!
     @IBAction private func yesButtonClicked(_ sender: UIButton) {
         
@@ -80,6 +90,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     @IBOutlet private var imageView: UIImageView!
     @IBOutlet private var textLabel: UILabel!
     @IBOutlet private var counterLabel: UILabel!
+    @IBOutlet private var activityIndicator: UIActivityIndicatorView!
     
     private func show(quiz step: QuizStepViewModel) {
         
@@ -87,22 +98,59 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
         textLabel.text = step.question
         counterLabel.text = step.questionNumber
         
+        view.alpha = 1
         
     }
     
-    private func show(quiz result: QuizResultsViewModel) {
+    func showLoadingIndicator() {
+        activityIndicator.isHidden = false
+        activityIndicator.startAnimating()
+    }
+    
+    func hideLoadingIndicator() {
+        activityIndicator.isHidden = true
+    }
+    
+    private func showNetworkError(message: String) {
+        
+        hideLoadingIndicator()
+        
+        let model = AlertModel(title: "Ошибка",
+                               message: message,
+                               buttonText: "Попробовать еще раз") { [weak self] in
+            guard let self = self else { return }
+            
+            self.currentQuestionIndex = 0
+            self.correctAnswers = 0
+            
+            self.questionFactory?.loadData()
+        }
+        alertPresenter?.show(alertModel: model)
+    }
+    
+    func didLoadDataFromServer() {
+        activityIndicator.isHidden = true
+        questionFactory?.requestNextQuestion()
+    }
+    
+    func didFailToLoadData(with error: Error) {
+        showNetworkError(message: error.localizedDescription)
+    }
+    
+    private func showFinalResults() {
         
         statisticService?.store(correct: correctAnswers, total: questionsCount)
         
         let alertModel = AlertModel(
-            title: "Игра окончена",
+            title: "Игра окончена!",
             message: makeResultMessage(),
-            buttonText: "Ok") { [weak self] in
+            buttonText: "Попробовать еще раз") { [weak self] in
                 self?.currentQuestionIndex = 0
                 self?.correctAnswers = 0
                 self?.questionFactory?.requestNextQuestion()
             }
         alertPresenter?.show(alertModel: alertModel)
+        
     }
     
     private func makeResultMessage() -> String {
@@ -118,7 +166,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
         let averageAccuracyLine = "Средняя точность: \(accuracy)%"
         
         let resultMessage = [
-        currentGameResultLine, totalPlaysCountLine, bestGameInfoLine, averageAccuracyLine
+            currentGameResultLine, totalPlaysCountLine, bestGameInfoLine, averageAccuracyLine
         ].joined(separator: "\n")
         return resultMessage
     }
@@ -127,7 +175,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     
     private func convert(model: QuizQuestion) -> QuizStepViewModel {
         return QuizStepViewModel(
-            image: UIImage(named: model.image) ?? UIImage(),
+            image: UIImage(data: model.image) ?? UIImage(),
             question: model.text,
             questionNumber: "\(currentQuestionIndex + 1)/\(questionsCount)")
         
@@ -139,32 +187,26 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
         imageView.layer.borderWidth = 0
         
         if currentQuestionIndex == questionsCount - 1 {
-            let text = correctAnswers == questionsCount ?
-            "Поздравляем, Вы ответили на 10 из 10!" :
-            "Вы ответили на \(correctAnswers) из 10, попробуйте ещё раз!"
-
-            let viewModel = QuizResultsViewModel(
-                title: "Этот раунд окончен!",
-                text: text,
-                buttonText: "Сыграть ещё раз")
-            show(quiz: viewModel)
-            correctAnswers = 0
-            yesButtonClicked.isEnabled = true
-            noButtonClicked.isEnabled = true
+            showFinalResults()
         } else {
-
             currentQuestionIndex += 1
             self.questionFactory?.requestNextQuestion()
-
+            
         }
         yesButtonClicked.isEnabled = true
         noButtonClicked.isEnabled = true
     }
     
+    func didfailedToUploadImage(for quizQuestionIndex: Int) {
+        let alert = AlertModel(title: "Ошибка",
+                               message: "Не удалось загрузить изображение",
+                               buttonText: "Попробовать еще раз") { [weak self] in
+            guard let self else { return }
+            self.imageView.layer.borderWidth = 0
+            self.questionFactory?.requestNextQuestionByIndex(by: quizQuestionIndex)
+        }
+        view.alpha = 0.6
+        alertPresenter?.show(alertModel: alert)
+    }
+    
 }
-
-
-
-
-
-

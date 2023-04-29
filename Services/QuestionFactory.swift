@@ -96,7 +96,7 @@ final class QuestionFactory: QuestionFactoryProtocol {
                 imageData = try Data(contentsOf: movie.resizedImageURL)
             } catch {
                 DispatchQueue.main.async { [weak self] in
-                    self?.delegate?.didfailedToUploadImage(for: index)     //ошибка загрузки изображения
+                    self?.delegate?.didFailedToUploadImage(for: index)     //ошибка загрузки изображения
                 }
                 return
             }

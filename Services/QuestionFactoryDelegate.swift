@@ -12,6 +12,6 @@ protocol QuestionFactoryDelegate {
     func didReceiveNextQuestion(question: QuizQuestion?)
     func didLoadDataFromServer()
     func didFailToLoadData(with error: Error)
-    func didfailedToUploadImage(for quizQuestionIndex: Int)
+    func didFailedToUploadImage(for quizQuestionIndex: Int)
 }
 
